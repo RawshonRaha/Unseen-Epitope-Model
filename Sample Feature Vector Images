@@ -1,0 +1,53 @@
+#Import Libraries
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+import time 
+import copy
+import pandas as pd
+from keras.utils import np_utils
+from tensorflow.keras.models import load_model
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn import neighbors, datasets, metrics
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import f1_score
+from sklearn.model_selection import train_test_split
+
+import sys
+import tensorflow as tf
+tf.config.run_functions_eagerly(True)
+np.set_printoptions(threshold=sys.maxsize)
+
+# Sample Images
+
+s=interactionMapfromSeq('FLKEKGL', 'CASSFEAGQGFFSNQ')
+
+plt.figure()
+plt.imshow(s[:,:,0], cmap="Blues")
+
+plt.figure()
+plt.imshow(s[:,:,1], cmap="Greens")
+
+plt.figure()
+plt.imshow(s[:,:,2], cmap="Reds")
+
+plt.figure()
+plt.imshow(s[:,:,3], cmap="Blues")
+
+plt.figure()
+plt.imshow(s[:,:,4], cmap="Purples")
+
+plt.figure()
+plt.imshow(s[:,:,5], cmap="Greens")
+
+plt.figure()
+plt.imshow(s[:,:,6], cmap="Reds")
+plt.figure()
+plt.imshow(s[:,:,7], cmap="Blues")
+
+plt.figure()
+plt.imshow(s[:,:,8], cmap="Purples")
+plt.show()
+
+plt.show()
