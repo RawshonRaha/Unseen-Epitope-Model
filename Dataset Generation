@@ -1,0 +1,114 @@
+# Import Libraries
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+import time 
+import copy
+import pandas as pd
+from keras.utils import np_utils
+from tensorflow.keras.models import load_model
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn import neighbors, datasets, metrics
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import f1_score
+from sklearn.model_selection import train_test_split
+
+import sys
+import tensorflow as tf
+tf.config.run_functions_eagerly(True)
+np.set_printoptions(threshold=sys.maxsize)
+
+# Generate Interaction Map for the entire Database
+ 
+# read data from the TSV file to read_csv() function with tab separator
+rawData = pd.read_csv('VDjdb.tsv', sep='\t')
+
+#save cdr3 epitope pairs and individual sequences in numpy array
+CDR3EpitopePairArray = rawData[['CDR3','Epitope']].to_numpy()
+epitopeSeqArray = CDR3EpitopePairArray[:,1]
+cdr3SeqArray = CDR3EpitopePairArray[:,0]
+
+# Identify unique Epitope and CDR3
+uniqueEpitope = np.unique(CDR3EpitopePairArray[:,1])
+uniqueCDR3 = np.unique(CDR3EpitopePairArray[:,0])
+
+# Randomly Shuffle Epitope and CDR3 sequences
+np.random.shuffle(uniqueEpitope)
+np.random.shuffle(uniqueCDR3)
+
+# Initialize Interaction map 
+allTrueInteractionPair = np.zeros((uniqueEpitope.size,uniqueCDR3.size))
+
+# Generate Interaction map 
+for i,epitopeSequence in enumerate(uniqueEpitope):
+    uniqueCDR3CurrentEpitope = np.take(CDR3EpitopePairArray[:,0],np.where(CDR3EpitopePairArray[:,1]==epitopeSequence))
+    allTrueInteractionPair[i,:] = (np.in1d(uniqueCDR3, uniqueCDR3CurrentEpitope, assume_unique=True)*1)
+
+np.save('allTrueInteractionPairMatrixShuffle1', allTrueInteractionPair)
+
+# Generate Dataset according to cross Validation Folds
+#Load all True Interaction Pair Matrix
+allTrueInteractionPair = np.load('allTrueInteractionPairMatrixShuffle1.npy')
+
+#define variables
+crossValidationFolds = 10
+
+samplesEachFoldAllData= int(CDR3EpitopePairArray.size/2/crossValidationFolds)
+samplesToTakePerEpitope = int(samplesEachFoldAllData/2)
+positiveDatasetTarget = [1]
+negativeDatasetTarget = [0]
+
+positiveDataset = np.empty((1,20,11,9),float)
+negativeDataset = np.empty((1,20,11,9),float)
+
+# Count total CDR3 for each Epitope 
+totalCDR3PerEpitope = np.zeros((np.shape(allTrueInteractionPair)[0]))
+
+for i in range(np.shape(allTrueInteractionPair)[0]):
+    totalCDR3PerEpitope[i]  = min (sum(allTrueInteractionPair[i,:]), samplesToTakePerEpitope)
+
+# cumulative CDR3    
+totalSampleNumber = np.cumsum(totalCDR3PerEpitope)
+
+# calculate dividing positions of the Array
+samplesEachFoldEpitopeGrouped = int(totalSampleNumber[totalSampleNumber.size-1]/crossValidationFolds)
+
+exactDividingPositions = (np.linspace(1,crossValidationFolds-1,crossValidationFolds-1)) * samplesEachFoldEpitopeGrouped
+
+# searchsorted provides the position to add new data in sorted list. -1 is added because our targetted similar value will be before that position 
+epitopeGrouped = (np.searchsorted(totalSampleNumber, exactDividingPositions, side="left"))-1
+
+for idx,value in enumerate(epitopeGrouped):
+    if (exactDividingPositions[idx]-totalSampleNumber[value] > totalSampleNumber[value+1]-exactDividingPositions[idx]):
+        epitopeGrouped[idx] = value+1
+
+epitopeGroupedDividingPositions = totalSampleNumber[epitopeGrouped].astype(int)
+
+epitopeGroupedWith0 = np.concatenate (([0],epitopeGrouped))
+epitopeGroupedWith0 = np.concatenate ((epitopeGroupedWith0,[uniqueEpitope.size-1]))
+
+
+for i in range (uniqueEpitope.size):
+    CDR3Samples = np.nonzero(allTrueInteractionPair[i,:])[0]
+    if (CDR3Samples.size > samplesToTakePerEpitope):
+        CDR3Samples=np.random.choice(CDR3Samples, size=samplesToTakePerEpitope, replace=False, p=None)
+    
+    for j in  (CDR3Samples):
+        positiveDataset = np.concatenate((positiveDataset,[AbsDiffromSeq(uniqueEpitope[i],uniqueCDR3[j])]),0)
+        positiveDatasetTarget = np.concatenate((positiveDatasetTarget,[1]),0)
+    
+    #identify epitopes of current group
+    currentEpitopeGroup = np.asarray(min(np.searchsorted(epitopeGroupedWith0, [i], side="right"),[crossValidationFolds]))
+    epitopesOfCurrentGroup = np.arange(epitopeGroupedWith0[currentEpitopeGroup-1][0],epitopeGroupedWith0[currentEpitopeGroup][0]+1,1)
+    otherEpitopesOfCurrentGroup = epitopesOfCurrentGroup[epitopesOfCurrentGroup!=i]
+    
+    negativeEpitopes = np.random.choice(otherEpitopesOfCurrentGroup, size=CDR3Samples.size, replace=True, p=None)
+    
+    for k in  range(negativeEpitopes.size):
+        negativeDataset = np.concatenate((negativeDataset,[AbsDiffromSeq(uniqueEpitope[negativeEpitopes[k]],uniqueCDR3[CDR3Samples[k]])]),0)
+        negativeDatasetTarget = np.concatenate((negativeDatasetTarget,[0]),0)
+              
+np.save('positiveDatasetCenterAbsDif12Shuffle1', positiveDataset[1:,:,:,:])
+np.save('negativeDatasetCenterAbsDif12Shuffle1', negativeDataset[1:,:,:,:])
+
