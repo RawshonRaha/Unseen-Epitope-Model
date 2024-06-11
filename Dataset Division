@@ -1,0 +1,249 @@
+#Import Libraries
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+import time 
+import copy
+import pandas as pd
+from keras.utils import np_utils
+from tensorflow.keras.models import load_model
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn import neighbors, datasets, metrics
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import f1_score
+from sklearn.model_selection import train_test_split
+
+import sys
+import tensorflow as tf
+tf.config.run_functions_eagerly(True)
+np.set_printoptions(threshold=sys.maxsize)
+
+# Load Data
+positiveDataset = np.load('positiveDatasetCenterAbsDif12Shuffle1.npy')
+negativeDataset = np.load('negativeDatasetCenterAbsDif12Shuffle1.npy')
+
+# dividing dataset into training and testing dataset
+
+def fold1(channels):
+    
+    # Fold 1, Training group-1-9; Testing group - 10
+    #Divide data into training, testing and validation array
+    
+    x_trainPositive = positiveDataset[:epitopeGroupedDividingPositions[8], :,:,channels].astype('float32')
+    x_testPositive = positiveDataset[epitopeGroupedDividingPositions[8]:, :,:,channels].astype('float32')
+
+    x_trainNegative = negativeDataset[:epitopeGroupedDividingPositions[8], :,:,channels].astype('float32')
+    x_testNegative = negativeDataset[epitopeGroupedDividingPositions[8]:, :,:,channels].astype('float32')
+
+    xTrain = np.concatenate((x_trainPositive,x_trainNegative))
+    xTest = np.concatenate((x_testPositive,x_testNegative))
+
+    yTrain = np.concatenate((np.ones (epitopeGroupedDividingPositions[8]),np.zeros(epitopeGroupedDividingPositions[8])) )
+    yTest = np.concatenate((np.ones (np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[8]),np.zeros(np.shape(negativeDataset)[0]-epitopeGroupedDividingPositions[8])))
+    
+    return xTrain, xTest, yTrain, yTest
+
+def fold2(channels):
+    
+    # Fold 2, Training group-2-10; Testing group - 1
+    #Divide data into training, testing and validation array
+    
+    x_trainPositive = positiveDataset[epitopeGroupedDividingPositions[0]:, :,:,channels].astype('float32')
+    x_testPositive = positiveDataset[:epitopeGroupedDividingPositions[0], :,:,channels].astype('float32')
+
+    x_trainNegative = negativeDataset[epitopeGroupedDividingPositions[0]:, :,:,channels].astype('float32')
+    x_testNegative = negativeDataset[:epitopeGroupedDividingPositions[0], :,:,channels].astype('float32')
+
+    xTrain = np.concatenate((x_trainPositive,x_trainNegative))
+    xTest = np.concatenate((x_testPositive,x_testNegative))
+
+    yTrain = np.concatenate((np.ones (np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[0]),np.zeros(np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[0])) )
+    yTest = np.concatenate((np.ones (epitopeGroupedDividingPositions[0]),np.zeros(epitopeGroupedDividingPositions[0])))
+
+    return xTrain, xTest, yTrain, yTest
+
+def fold3(channels):
+    
+    # Fold 3, Training group-3-10,1; Testing group - 2
+    #Divide data into training, testing and validation array
+    
+    trainIndices = list(range(epitopeGroupedDividingPositions[1],np.shape(positiveDataset)[0]))+list(range(0,epitopeGroupedDividingPositions[0]))
+
+    x_trainPositive = positiveDataset[trainIndices,:,:,:].astype('float32')
+    x_trainPositive = x_trainPositive[:,:,:,channels]
+    x_testPositive = positiveDataset[epitopeGroupedDividingPositions[0]:epitopeGroupedDividingPositions[1], :,:,channels].astype('float32')
+
+    x_trainNegative = negativeDataset[trainIndices, :,:,:].astype('float32')
+    x_trainNegative = x_trainNegative[:,:,:,channels]
+    x_testNegative = negativeDataset[epitopeGroupedDividingPositions[0]:epitopeGroupedDividingPositions[1], :,:,channels].astype('float32')
+
+    xTrain = np.concatenate((x_trainPositive,x_trainNegative))
+    xTest = np.concatenate((x_testPositive,x_testNegative))
+
+    yTrain = np.concatenate((np.ones (np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[1]+epitopeGroupedDividingPositions[0]),np.zeros(np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[1]+epitopeGroupedDividingPositions[0])) )
+    yTest = np.concatenate((np.ones (epitopeGroupedDividingPositions[1]-epitopeGroupedDividingPositions[0]),np.zeros(epitopeGroupedDividingPositions[1]-epitopeGroupedDividingPositions[0])))
+
+    return xTrain, xTest, yTrain, yTest
+
+def fold4(channels):
+    
+    # Fold 4, Training group-4-10,1-2; Testing group - 3
+    #Divide data into training, testing and validation array
+    
+    trainIndices = list(range(epitopeGroupedDividingPositions[2],np.shape(positiveDataset)[0]))+list(range(0,epitopeGroupedDividingPositions[1]))
+
+    x_trainPositive = positiveDataset[trainIndices,:,:,:].astype('float32')
+    x_trainPositive = x_trainPositive[:,:,:,channels]
+    x_testPositive = positiveDataset[epitopeGroupedDividingPositions[1]:epitopeGroupedDividingPositions[2], :,:,channels].astype('float32')
+
+    x_trainNegative = negativeDataset[trainIndices, :,:,:].astype('float32')
+    x_trainNegative = x_trainNegative[:,:,:,channels]
+    x_testNegative = negativeDataset[epitopeGroupedDividingPositions[1]:epitopeGroupedDividingPositions[2], :,:,channels].astype('float32')
+
+    xTrain = np.concatenate((x_trainPositive,x_trainNegative))
+    xTest = np.concatenate((x_testPositive,x_testNegative))
+
+    yTrain = np.concatenate((np.ones (np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[2]+epitopeGroupedDividingPositions[1]),np.zeros(np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[2]+epitopeGroupedDividingPositions[1])) )
+    yTest = np.concatenate((np.ones (epitopeGroupedDividingPositions[2]-epitopeGroupedDividingPositions[1]),np.zeros(epitopeGroupedDividingPositions[2]-epitopeGroupedDividingPositions[1])))
+
+    return xTrain, xTest, yTrain, yTest
+
+def fold5(channels):
+    
+    # Fold 5, Training group-5-10,1,3; Testing group - 4
+    #Divide data into training, testing and validation array
+    
+    trainIndices = list(range(epitopeGroupedDividingPositions[3],np.shape(positiveDataset)[0]))+list(range(0,epitopeGroupedDividingPositions[2]))
+
+    x_trainPositive = positiveDataset[trainIndices,:,:,:].astype('float32')
+    x_trainPositive = x_trainPositive[:,:,:,channels]
+    x_testPositive = positiveDataset[epitopeGroupedDividingPositions[2]:epitopeGroupedDividingPositions[3], :,:,channels].astype('float32')
+
+    x_trainNegative = negativeDataset[trainIndices, :,:,:].astype('float32')
+    x_trainNegative = x_trainNegative[:,:,:,channels]
+    x_testNegative = negativeDataset[epitopeGroupedDividingPositions[2]:epitopeGroupedDividingPositions[3], :,:,channels].astype('float32')
+
+    xTrain = np.concatenate((x_trainPositive,x_trainNegative))
+    xTest = np.concatenate((x_testPositive,x_testNegative))
+
+    yTrain = np.concatenate((np.ones (np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[3]+epitopeGroupedDividingPositions[2]),np.zeros(np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[3]+epitopeGroupedDividingPositions[2])) )
+    yTest = np.concatenate((np.ones (epitopeGroupedDividingPositions[3]-epitopeGroupedDividingPositions[2]),np.zeros(epitopeGroupedDividingPositions[3]-epitopeGroupedDividingPositions[2])))
+
+    return xTrain, xTest, yTrain, yTest
+
+def fold6(channels):
+    
+    # Fold 6, Training group-6-10,1-4; Testing group - 5
+    #Divide data into training, testing and validation array
+    
+    trainIndices = list(range(epitopeGroupedDividingPositions[4],np.shape(positiveDataset)[0]))+list(range(0,epitopeGroupedDividingPositions[3]))
+
+    x_trainPositive = positiveDataset[trainIndices,:,:,:].astype('float32')
+    x_trainPositive = x_trainPositive[:,:,:,channels]
+    x_testPositive = positiveDataset[epitopeGroupedDividingPositions[3]:epitopeGroupedDividingPositions[4], :,:,channels].astype('float32')
+
+    x_trainNegative = negativeDataset[trainIndices, :,:,:].astype('float32')
+    x_trainNegative = x_trainNegative[:,:,:,channels]
+    x_testNegative = negativeDataset[epitopeGroupedDividingPositions[3]:epitopeGroupedDividingPositions[4], :,:,channels].astype('float32')
+
+    xTrain = np.concatenate((x_trainPositive,x_trainNegative))
+    xTest = np.concatenate((x_testPositive,x_testNegative))
+
+    yTrain = np.concatenate((np.ones (np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[4]+epitopeGroupedDividingPositions[3]),np.zeros(np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[4]+epitopeGroupedDividingPositions[3])) )
+    yTest = np.concatenate((np.ones (epitopeGroupedDividingPositions[4]-epitopeGroupedDividingPositions[3]),np.zeros(epitopeGroupedDividingPositions[4]-epitopeGroupedDividingPositions[3])))
+
+    return xTrain, xTest, yTrain, yTest
+
+def fold7(channels):
+    
+    # Fold 7, Training group-7-10,1-5; Testing group - 6    
+    #Divide data into training, testing and validation array
+    
+    trainIndices = list(range(epitopeGroupedDividingPositions[5],np.shape(positiveDataset)[0]))+list(range(0,epitopeGroupedDividingPositions[4]))
+
+    x_trainPositive = positiveDataset[trainIndices,:,:,:].astype('float32')
+    x_trainPositive = x_trainPositive[:,:,:,channels]
+    x_testPositive = positiveDataset[epitopeGroupedDividingPositions[4]:epitopeGroupedDividingPositions[5], :,:,channels].astype('float32')
+
+    x_trainNegative = negativeDataset[trainIndices, :,:,:].astype('float32')
+    x_trainNegative = x_trainNegative[:,:,:,channels]
+    x_testNegative = negativeDataset[epitopeGroupedDividingPositions[4]:epitopeGroupedDividingPositions[5], :,:,channels].astype('float32')
+
+    xTrain = np.concatenate((x_trainPositive,x_trainNegative))
+    xTest = np.concatenate((x_testPositive,x_testNegative))
+
+    yTrain = np.concatenate((np.ones (np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[5]+epitopeGroupedDividingPositions[4]),np.zeros(np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[5]+epitopeGroupedDividingPositions[4])) )
+    yTest = np.concatenate((np.ones (epitopeGroupedDividingPositions[5]-epitopeGroupedDividingPositions[4]),np.zeros(epitopeGroupedDividingPositions[5]-epitopeGroupedDividingPositions[4])))
+
+
+    return xTrain, xTest, yTrain, yTest
+
+def fold8(channels):
+    
+    # Fold 8, Training group-8-10,1-6; Testing group - 7
+    #Divide data into training, testing and validation array
+    
+    trainIndices = list(range(epitopeGroupedDividingPositions[6],np.shape(positiveDataset)[0]))+list(range(0,epitopeGroupedDividingPositions[5]))
+
+    x_trainPositive = positiveDataset[trainIndices,:,:,:].astype('float32')
+    x_trainPositive = x_trainPositive[:,:,:,channels]
+    x_testPositive = positiveDataset[epitopeGroupedDividingPositions[5]:epitopeGroupedDividingPositions[6], :,:,channels].astype('float32')
+
+    x_trainNegative = negativeDataset[trainIndices, :,:,:].astype('float32')
+    x_trainNegative = x_trainNegative[:,:,:,channels]
+    x_testNegative = negativeDataset[epitopeGroupedDividingPositions[5]:epitopeGroupedDividingPositions[6], :,:,channels].astype('float32')
+
+    xTrain = np.concatenate((x_trainPositive,x_trainNegative))
+    xTest = np.concatenate((x_testPositive,x_testNegative))
+
+    yTrain = np.concatenate((np.ones (np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[6]+epitopeGroupedDividingPositions[5]),np.zeros(np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[6]+epitopeGroupedDividingPositions[5])) )
+    yTest = np.concatenate((np.ones (epitopeGroupedDividingPositions[6]-epitopeGroupedDividingPositions[5]),np.zeros(epitopeGroupedDividingPositions[6]-epitopeGroupedDividingPositions[5])))
+
+    return xTrain, xTest, yTrain, yTest
+
+def fold9(channels):
+    
+    # Fold 9, Training group-9-10,1-6; validation group- 7, Testing group - 8
+    #Divide data into training, testing and validation array
+    
+    trainIndices = list(range(epitopeGroupedDividingPositions[7],np.shape(positiveDataset)[0]))+list(range(0,epitopeGroupedDividingPositions[6]))
+
+    x_trainPositive = positiveDataset[trainIndices,:,:,:].astype('float32')
+    x_trainPositive = x_trainPositive[:,:,:,channels]
+    x_testPositive = positiveDataset[epitopeGroupedDividingPositions[6]:epitopeGroupedDividingPositions[7], :,:,channels].astype('float32')
+
+    x_trainNegative = negativeDataset[trainIndices, :,:,:].astype('float32')
+    x_trainNegative = x_trainNegative[:,:,:,channels]
+    x_testNegative = negativeDataset[epitopeGroupedDividingPositions[6]:epitopeGroupedDividingPositions[7], :,:,channels].astype('float32')
+
+    xTrain = np.concatenate((x_trainPositive,x_trainNegative))
+    xTest = np.concatenate((x_testPositive,x_testNegative))
+
+    yTrain = np.concatenate((np.ones (np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[7]+epitopeGroupedDividingPositions[6]),np.zeros(np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[7]+epitopeGroupedDividingPositions[6])) )
+    yTest = np.concatenate((np.ones (epitopeGroupedDividingPositions[7]-epitopeGroupedDividingPositions[6]),np.zeros(epitopeGroupedDividingPositions[7]-epitopeGroupedDividingPositions[6])))
+
+    return xTrain, xTest, yTrain, yTest
+
+def fold10(channels):
+    
+    # Fold 10, Training group-10,1-7; validation group- 8, Testing group - 9
+    #Divide data into training, testing and validation array
+    
+    trainIndices = list(range(epitopeGroupedDividingPositions[8],np.shape(positiveDataset)[0]))+list(range(0,epitopeGroupedDividingPositions[7]))
+
+    x_trainPositive = positiveDataset[trainIndices,:,:,:].astype('float32')
+    x_trainPositive = x_trainPositive[:,:,:,channels]
+    x_testPositive = positiveDataset[epitopeGroupedDividingPositions[7]:epitopeGroupedDividingPositions[8], :,:,channels].astype('float32')
+
+    x_trainNegative = negativeDataset[trainIndices, :,:,:].astype('float32')
+    x_trainNegative = x_trainNegative[:,:,:,channels]
+    x_testNegative = negativeDataset[epitopeGroupedDividingPositions[7]:epitopeGroupedDividingPositions[8], :,:,channels].astype('float32')
+
+    xTrain = np.concatenate((x_trainPositive,x_trainNegative))
+    xTest = np.concatenate((x_testPositive,x_testNegative))
+
+    yTrain = np.concatenate((np.ones (np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[8]+epitopeGroupedDividingPositions[7]),np.zeros(np.shape(positiveDataset)[0]-epitopeGroupedDividingPositions[8]+epitopeGroupedDividingPositions[7])) )
+    yTest = np.concatenate((np.ones (epitopeGroupedDividingPositions[8]-epitopeGroupedDividingPositions[7]),np.zeros(epitopeGroupedDividingPositions[8]-epitopeGroupedDividingPositions[7])))
+
+    return xTrain, xTest, yTrain, yTest
