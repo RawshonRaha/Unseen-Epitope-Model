@@ -1,0 +1,166 @@
+#Import Libraries
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+import time 
+import copy
+import pandas as pd
+from keras.utils import np_utils
+from tensorflow.keras.models import load_model
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn import neighbors, datasets, metrics
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import f1_score
+from sklearn.model_selection import train_test_split
+
+import sys
+import tensorflow as tf
+tf.config.run_functions_eagerly(True)
+np.set_printoptions(threshold=sys.maxsize)
+
+# Classification Accuracy
+for i in range(6,15,1):
+    thres = i/20
+    predKNN1 = tf.greater(vector14KNN['group1KNN'], thres)    
+    correctKNN1=0                    
+    for idx,val in enumerate(predKNN1[:,1]):
+        if(val==yTest1[idx] ):
+            correctKNN1=correctKNN1+1; 
+            
+    predKNN2 = tf.greater(vector14KNN['group2KNN'], thres)    
+    correctKNN2=0                    
+    for idx,val in enumerate(predKNN2[:,1]):
+        if(val==yTest2[idx] ):
+            correctKNN2=correctKNN2+1; 
+    
+    predKNN3 = tf.greater(vector14KNN['group3KNN'], thres)    
+    correctKNN3=0                    
+    for idx,val in enumerate(predKNN3[:,1]):
+        if(val==yTest3[idx] ):
+            correctKNN3=correctKNN3+1; 
+    
+    predKNN4 = tf.greater(vector14KNN['group4KNN'], thres)    
+    correctKNN4=0                    
+    for idx,val in enumerate(predKNN4[:,1]):
+        if(val==yTest4[idx] ):
+            correctKNN4=correctKNN4+1;     
+    
+    predKNN5 = tf.greater(vector14KNN['group5KNN'], thres)    
+    correctKNN5=0                    
+    for idx,val in enumerate(predKNN5[:,1]):
+        if(val==yTest5[idx] ):
+            correctKNN5=correctKNN5+1;     
+    
+    predKNN6 = tf.greater(vector14KNN['group6KNN'], thres)    
+    correctKNN6=0                    
+    for idx,val in enumerate(predKNN6[:,1]):
+        if(val==yTest6[idx] ):
+            correctKNN6=correctKNN6+1;     
+    
+    predKNN7 = tf.greater(vector14KNN['group7KNN'], thres)    
+    correctKNN7=0                    
+    for idx,val in enumerate(predKNN7[:,1]):
+        if(val==yTest7[idx] ):
+            correctKNN7=correctKNN7+1; 
+    
+    predKNN8 = tf.greater(vector14KNN['group8KNN'], thres)    
+    correctKNN8=0                    
+    for idx,val in enumerate(predKNN8[:,1]):
+        if(val==yTest8[idx] ):
+            correctKNN8=correctKNN8+1; 
+    
+    predKNN9 = tf.greater(vector14KNN['group9KNN'], thres)    
+    correctKNN9=0                    
+    for idx,val in enumerate(predKNN9[:,1]):
+        if(val==yTest9[idx] ):
+            correctKNN9=correctKNN9+1; 
+    
+    predKNN10 = tf.greater(vector14KNN['group10KNN'], thres)    
+    correctKNN10=0                    
+    for idx,val in enumerate(predKNN10[:,1]):
+        if(val==yTest10[idx] ):
+            correctKNN10=correctKNN10+1; 
+    
+    totalData = 2*np.shape(positiveDataset)[0]
+    correctKNN = correctKNN1+ correctKNN2+ correctKNN3+ correctKNN4+ correctKNN5+ correctKNN6+ correctKNN7+ correctKNN8+ correctKNN9+ correctKNN10        
+    print(thres, idx+1, totalData, correctKNN, correctKNN/totalData)    
+
+#AUC for multiple properties
+import sklearn
+from sklearn.metrics import roc_auc_score, roc_curve
+import matplotlib.pyplot as plt
+import numpy as np
+
+#12
+AbsDif12Groups1 = np.load('AUCAbsDif12KNNNoShuffle.npz',allow_pickle=True)
+AbsDif12Groups3 = np.load('AUCAbsDif12KNNShuffle2.npz', allow_pickle=True)
+
+AbsDif12predictedKNN = np.concatenate((AbsDif12Groups1['predicted'], AbsDif12Groups3['predicted']))
+AbsDif12target = np.concatenate((AbsDif12Groups1['target'],  AbsDif12Groups3['target']))
+
+AbsDif12fprKNN, AbsDif12tprKNN, _ = sklearn.metrics.roc_curve(AbsDif12target,  AbsDif12predictedKNN)
+AbsDif12aucKNN = sklearn.metrics.roc_auc_score(AbsDif12target, AbsDif12predictedKNN)
+plt.plot(AbsDif12fprKNN,AbsDif12tprKNN,label="AUC="+str(round(AbsDif12aucKNN, 2))+" for H1 and H2")
+
+#15
+AbsDif15Groups1 = np.load('AUCAbsDif15KNNNoShuffle.npz',allow_pickle=True)
+AbsDif15Groups3 = np.load('AUCAbsDif15KNNShuffle2.npz', allow_pickle=True)
+
+AbsDif15predictedKNN = np.concatenate((AbsDif15Groups1['predicted'], AbsDif15Groups3['predicted']))
+AbsDif15target = np.concatenate((AbsDif15Groups1['target'],  AbsDif15Groups3['target']))
+
+AbsDif15fprKNN, AbsDif15tprKNN, _ = sklearn.metrics.roc_curve(AbsDif15target,  AbsDif15predictedKNN)
+AbsDif15aucKNN = sklearn.metrics.roc_auc_score(AbsDif15target, AbsDif15predictedKNN)
+plt.plot(AbsDif15fprKNN,AbsDif15tprKNN,label="AUC="+str(round(AbsDif15aucKNN, 2))+' '+' '+" for H1 and P1")
+
+#18
+AbsDif18Groups1 = np.load('AUCAbsDif18KNNNoShuffle.npz',allow_pickle=True)
+AbsDif18Groups3 = np.load('AUCAbsDif18KNNShuffle2.npz', allow_pickle=True)
+
+AbsDif18predictedKNN = np.concatenate((AbsDif18Groups1['predicted'], AbsDif18Groups3['predicted']))
+AbsDif18target = np.concatenate((AbsDif18Groups1['target'],  AbsDif18Groups3['target']))
+
+AbsDif18fprKNN, AbsDif18tprKNN, _ = sklearn.metrics.roc_curve(AbsDif18target,  AbsDif18predictedKNN)
+AbsDif18aucKNN = sklearn.metrics.roc_auc_score(AbsDif18target, AbsDif18predictedKNN)
+plt.plot(AbsDif18fprKNN,AbsDif18tprKNN,label="AUC="+str(round(AbsDif18aucKNN, 2))+" for H1 and NCI")
+
+#25
+AbsDif25Groups1 = np.load('AUCAbsDif25KNNNoShuffle.npz',allow_pickle=True)
+AbsDif25Groups3 = np.load('AUCAbsDif25KNNShuffle2.npz', allow_pickle=True)
+
+AbsDif25predictedKNN = np.concatenate((AbsDif25Groups1['predicted'], AbsDif25Groups3['predicted']))
+AbsDif25target = np.concatenate((AbsDif25Groups1['target'],  AbsDif25Groups3['target']))
+
+AbsDif25fprKNN, AbsDif25tprKNN, _ = sklearn.metrics.roc_curve(AbsDif25target,  AbsDif25predictedKNN)
+AbsDif25aucKNN = sklearn.metrics.roc_auc_score(AbsDif25target, AbsDif25predictedKNN)
+plt.plot(AbsDif25fprKNN,AbsDif25tprKNN,label="AUC="+str(round(AbsDif25aucKNN, 2))+" for H2 and P1")
+
+#28
+AbsDif28Groups1 = np.load('AUCAbsDif28KNNNoShuffle.npz',allow_pickle=True)
+AbsDif28Groups3 = np.load('AUCAbsDif28KNNShuffle2.npz', allow_pickle=True)
+
+AbsDif28predictedKNN = np.concatenate((AbsDif28Groups1['predicted'], AbsDif28Groups3['predicted']))
+AbsDif28target = np.concatenate((AbsDif28Groups1['target'],  AbsDif28Groups3['target']))
+
+AbsDif28fprKNN, AbsDif28tprKNN, _ = sklearn.metrics.roc_curve(AbsDif28target,  AbsDif28predictedKNN)
+AbsDif28aucKNN = sklearn.metrics.roc_auc_score(AbsDif28target, AbsDif28predictedKNN)
+plt.plot(AbsDif28fprKNN,AbsDif28tprKNN,label="AUC="+str(round(AbsDif28aucKNN, 2))+" for H2 and NCI")
+
+#58
+AbsDif58Groups1 = np.load('AUCAbsDif58KNNNoShuffle.npz',allow_pickle=True)
+AbsDif58Groups3 = np.load('AUCAbsDif58KNNShuffle2.npz', allow_pickle=True)
+
+AbsDif58predictedKNN = np.concatenate((AbsDif58Groups1['predicted'], AbsDif58Groups3['predicted']))
+AbsDif58target = np.concatenate((AbsDif58Groups1['target'],  AbsDif58Groups3['target']))
+
+AbsDif58fprKNN, AbsDif58tprKNN, _ = sklearn.metrics.roc_curve(AbsDif58target,  AbsDif58predictedKNN)
+AbsDif58aucKNN = sklearn.metrics.roc_auc_score(AbsDif58target, AbsDif58predictedKNN)
+plt.plot(AbsDif58fprKNN,AbsDif58tprKNN,label="AUC="+str(round(AbsDif58aucKNN, 2))+" for P1 and NCI")
+
+plt.title('AUC-ROC using Absolute Difference', fontsize=16)
+
+plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=16)
+plt.xlabel("False Positive Rate", fontsize=16)
+plt.ylabel("True Positive Rate", fontsize=16)
+plt.show()
