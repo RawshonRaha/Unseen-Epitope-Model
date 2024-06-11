@@ -1,0 +1,257 @@
+#Import Libraries
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+import time 
+import copy
+import pandas as pd
+from keras.utils import np_utils
+from tensorflow.keras.models import load_model
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn import neighbors, datasets, metrics
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import f1_score
+from sklearn.model_selection import train_test_split
+
+import sys
+import tensorflow as tf
+tf.config.run_functions_eagerly(True)
+np.set_printoptions(threshold=sys.maxsize)
+
+# Define Feature Extraction Functions
+def seqToPhy(sequence, seqType,seqSize):
+    
+    PhyFeature = np.zeros((seqSize,9), dtype=float)
+        
+    PhyArr = {
+        'A': [71.0788 , 0.62 , -0.5 , 2.0 , 27.5 , 8.1 , 0.046 , 1.181 , 0.007187 ],
+        'C': [103.1388 , 0.29 , -1.0 , 2.0 , 44.6 , 5.5 , 0.128 , 1.461 , -0.03661 ],
+        'D': [115.0886 , -0.9 , 3.0 , 4.0 , 40.0 , 13.0 , 0.105 , 1.587 , -0.02382 ],
+        'E': [129.1155 , -0.74 , 3.0 , 4.0 , 62.0 , 12.3 , 0.151 , 1.862 , 0.006802 ],
+        'F': [147.1766 , 1.19 , -2.5 , 2.0 , 115.5 , 5.2 , 0.29 , 2.228 , 0.037552 ],
+        'G': [57.0519 , 0.48 , 0.0 , 2.0 , 0.0 , 9.0 , 0.0 , 0.881 , 0.179052 ],
+        'H': [137.1411 , -0.4 , -0.5 , 4.0 , 79.0 , 10.4 , 0.23 , 2.025 , -0.01069 ],
+        'I': [113.1594 , 1.38 , -1.8 , 2.0 , 93.5 , 5.2 , 0.186 , 1.81 , 0.021631 ],
+        'K': [128.1741 , -1.5 , 3.0 , 2.0 , 100.0 , 11.3 , 0.219 , 2.258 , 0.017708 ],
+        'L': [113.1594 , 1.06 , -1.8 , 2.0 , 93.5 , 4.9 , 0.186 , 1.931 , 0.051672 ],
+        'M': [131.1986 , 0.64 , -1.3 , 2.0 , 94.1 , 5.7 , 0.221 , 2.034 , 0.002683 ],
+        'N': [114.1039 , -0.78 , 2.0 , 4.0 , 58.7 , 11.6 , 0.134 , 1.655 , 0.005392 ],
+        'P': [97.1167 , 0.12 , 0.0 , 2.0 , 41.9 , 8.0 , 0.131 , 1.468 , 0.239531 ],
+        'Q': [128.1307 , -0.85 , 0.2 , 4.0 , 80.7 , 10.5 , 0.18 , 1.932 , 0.049211 ],
+        'R': [156.1875 , -2.53 , 3.0 , 4.0 , 105.0 , 10.5 , 0.18 , 1.932 , 0.049211 ],
+        'S': [87.0782 , -0.18 , 0.3 , 4.0 , 29.3 , 9.2 , 0.062 , 1.298 , 0.004627 ],
+        'T': [101.1051 , -0.05 , -0.4 , 4.0 , 51.3 , 8.6 , 0.108 , 1.525 , 0.003352 ],
+        'V': [99.1326 , 1.08 , -1.5 , 2.0 , 71.5 , 5.9 , 0.14 , 1.645 , 0.057004 ],
+        'W': [186.2132 , 0.81 , -3.4 , 3.0 , 145.5 , 5.4 , 0.409 , 2.663 , 0.037977 ],
+        'Y': [163.176 , 0.26 , -2.3 , 3.0 , 117.3 , 6.2 , 0.298 , 2.368 , 0.023599 ]
+    }
+        
+    for i in range(len(sequence)):   
+        PhyFeature[i] = PhyArr[sequence[i]]
+
+    return PhyFeature
+
+# Absolute Difference based feature vector
+def AbsDiffromSeq(epitopeSeq,cdr3Seq):
+
+    # Difference of Highest and lowest feature
+    diffMass = 129.1613
+    diffHydrophobicity = 3.91
+    diffHydrophilicity = 6.4
+    diffIP = 7.99
+    diffHydrogenBond = 2
+    diffVolumeOfSideChains = 145.5
+    diffPolarity = 8.1
+    diffPolarizability = 0.409
+    diffSASA = 1.782
+    diffNCI = 0.276141
+
+    #Default epitope and CDR3 length
+    sizeEpitope = 11
+    sizeCDR3 = 20
+
+    #current epitope and CDR3 length
+    lengthCurrentEpitope = len(epitopeSeq)
+    lengthCurrentCDR3 = len(cdr3Seq)
+    
+    #calculate trim size
+    if (lengthCurrentEpitope > sizeEpitope):
+        trimSize = math.floor((lengthCurrentEpitope - sizeEpitope)/2)
+        epitopeSeq = epitopeSeq [trimSize:trimSize+sizeEpitope]
+    
+    # Generate seqToPhy Array
+    cdr3Phy = seqToPhy(cdr3Seq,'c',sizeCDR3)
+    epitopePhy = seqToPhy(epitopeSeq,'e',sizeEpitope)
+    
+    # Split seqToPhy Array into individual physicochemical property array
+    cdr3Mass= np.transpose(cdr3Phy[:,0:1])
+    epitopeMass= np.transpose(epitopePhy[:,0:1])
+    cdr3Hydrophobicity= np.transpose(cdr3Phy[:,1:2])
+    epitopeHydrophobicity= np.transpose(epitopePhy[:,1:2])
+    cdr3Hydrophilicity= np.transpose(cdr3Phy[:,2:3])
+    epitopeHydrophilicity= np.transpose(epitopePhy[:,2:3])    
+    cdr3HydrogenBond= np.transpose(cdr3Phy[:,3:4])
+    epitopeHydrogenBond= np.transpose(epitopePhy[:,3:4])    
+    cdr3VolumeOfSideChains= np.transpose(cdr3Phy[:,4:5])
+    epitopeVolumeOfSideChains= np.transpose(epitopePhy[:,4:5])    
+    cdr3Polarity= np.transpose(cdr3Phy[:,5:6])
+    epitopePolarity= np.transpose(epitopePhy[:,5:6])    
+    cdr3Polarizability= np.transpose(cdr3Phy[:,6:7])
+    epitopePolarizability= np.transpose(epitopePhy[:,6:7])    
+    cdr3SASA= np.transpose(cdr3Phy[:,7:8])
+    epitopeSASA= np.transpose(epitopePhy[:,7:8])    
+    cdr3NCI= np.transpose(cdr3Phy[:,8:9])
+    epitopeNCI= np.transpose(epitopePhy[:,8:9])
+
+    # Empty array for Combined features
+    epitopeCDR3MassArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3HydrophobicityArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3HydrophilicityArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3HydrogenBondArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3VolumeOfSideChainsArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3PolarityArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3PolarizabilityArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3SASAArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3NCIArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3IPArray = np.zeros((sizeCDR3,sizeEpitope))    
+    CombinedImage = np.zeros((sizeCDR3,sizeEpitope,9))
+    
+    # Calculate Padding Size
+    cdr3Padding= int((sizeCDR3-len(cdr3Seq))/2)
+    epitopePadding= int((sizeEpitope-len(epitopeSeq))/2)
+
+    #Generate Combined features
+    for i in range(len(cdr3Seq)):
+        cdr3PaddingPos=cdr3Padding+i
+        epitopePaddingPos=epitopePadding+lengthCurrentEpitope
+        
+        epitopeCDR3MassArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1+abs(cdr3Mass[0,i]-epitopeMass[0,:lengthCurrentEpitope])/diffMass                
+        epitopeCDR3HydrophobicityArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1+abs(cdr3Hydrophobicity[0,i]-epitopeHydrophobicity[0,:lengthCurrentEpitope])/diffHydrophobicity
+        epitopeCDR3HydrophilicityArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1+abs(cdr3Hydrophilicity[0,i]-epitopeHydrophilicity[0,:lengthCurrentEpitope])/diffHydrophilicity
+        epitopeCDR3HydrogenBondArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1+abs(cdr3HydrogenBond[0,i]-epitopeHydrogenBond[0,:lengthCurrentEpitope])/diffHydrogenBond
+        epitopeCDR3VolumeOfSideChainsArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1+abs(cdr3VolumeOfSideChains[0,i]-epitopeVolumeOfSideChains[0,:lengthCurrentEpitope])/diffVolumeOfSideChains
+        epitopeCDR3PolarityArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1+abs(cdr3Polarity[0,i]-epitopePolarity[0,:lengthCurrentEpitope])/diffPolarity
+        epitopeCDR3PolarizabilityArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1+abs(cdr3Polarizability[0,i]-epitopePolarizability[0,:lengthCurrentEpitope])/diffPolarizability
+        epitopeCDR3SASAArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1+abs(cdr3SASA[0,i]-epitopeSASA[0,:lengthCurrentEpitope])/diffSASA
+        epitopeCDR3NCIArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1+abs(cdr3NCI[0,i]-epitopeNCI[0,:lengthCurrentEpitope])/diffNCI
+        
+    CombinedImage[:,:,0]=epitopeCDR3MassArray
+    CombinedImage[:,:,1]=epitopeCDR3HydrophobicityArray
+    CombinedImage[:,:,2]=epitopeCDR3HydrophilicityArray
+    CombinedImage[:,:,3]=epitopeCDR3HydrogenBondArray 
+    CombinedImage[:,:,4]=epitopeCDR3VolumeOfSideChainsArray 
+    CombinedImage[:,:,5]=epitopeCDR3PolarityArray 
+    CombinedImage[:,:,6]=epitopeCDR3PolarizabilityArray 
+    CombinedImage[:,:,7]=epitopeCDR3SASAArray 
+    CombinedImage[:,:,8]=epitopeCDR3NCIArray
+    
+    return CombinedImage
+
+# Vector Outer Product based feature vector
+
+def VOPfromSeq(epitopeSeq,cdr3Seq):
+
+    # Difference of Highest and lowest feature
+    diffProductMass = 34675.35585424-3254.9192936100003
+    diffProductHydrophobicity = 6.4009-(-3.49139)
+    diffProductHydrophilicity = 11.56-(-10.2)
+    diffProductHydrogenBond = 16-4
+    diffProductVolumeOfSideChains = 21170.25-0
+    diffProductPolarity = 169.0-24.01
+    diffProductPolarizability = 0.16728-0
+    diffProductSASA = 7.091569-0.77616
+    diffProductNCI = 0.0573751 -(-0.0087692299)  
+    
+    # lowest Value for each feature
+    minProductMass = 3254.9192936100003
+    minProductHydrophobicity = -3.49139
+    minProductHydrophilicity = -10.2
+    minProductHydrogenBond = 4
+    minProductVolumeOfSideChains = 0
+    minProductPolarity = 24.01
+    minProductPolarizability = 0
+    minProductSASA = 0.77616
+    minProductNCI = -0.0087692299
+    
+    #Default epitope and CDR3 length
+    sizeEpitope = 11
+    sizeCDR3 = 20
+
+    #current epitope and CDR3 length
+    lengthCurrentEpitope = len(epitopeSeq)
+    lengthCurrentCDR3 = len(cdr3Seq)
+    
+    #calculate trim size
+    if (lengthCurrentEpitope > sizeEpitope):
+        trimSize = math.floor((lengthCurrentEpitope - sizeEpitope)/2)
+        epitopeSeq = epitopeSeq [trimSize:trimSize+sizeEpitope]
+        
+    # Generate seqToPhy Array
+    cdr3Phy = seqToPhy(cdr3Seq,'c',sizeCDR3)
+    epitopePhy = seqToPhy(epitopeSeq,'e',sizeEpitope)
+    
+    # Split seqToPhy Array into individual physicochemical property array
+    cdr3Mass= np.transpose(cdr3Phy[:,0:1])
+    epitopeMass= np.transpose(epitopePhy[:,0:1])
+    cdr3Hydrophobicity= np.transpose(cdr3Phy[:,1:2])
+    epitopeHydrophobicity= np.transpose(epitopePhy[:,1:2])
+    cdr3Hydrophilicity= np.transpose(cdr3Phy[:,2:3])
+    epitopeHydrophilicity= np.transpose(epitopePhy[:,2:3])    
+    cdr3HydrogenBond= np.transpose(cdr3Phy[:,3:4])
+    epitopeHydrogenBond= np.transpose(epitopePhy[:,3:4])    
+    cdr3VolumeOfSideChains= np.transpose(cdr3Phy[:,4:5])
+    epitopeVolumeOfSideChains= np.transpose(epitopePhy[:,4:5])    
+    cdr3Polarity= np.transpose(cdr3Phy[:,5:6])
+    epitopePolarity= np.transpose(epitopePhy[:,5:6])    
+    cdr3Polarizability= np.transpose(cdr3Phy[:,6:7])
+    epitopePolarizability= np.transpose(epitopePhy[:,6:7])    
+    cdr3SASA= np.transpose(cdr3Phy[:,7:8])
+    epitopeSASA= np.transpose(epitopePhy[:,7:8])    
+    cdr3NCI= np.transpose(cdr3Phy[:,8:9])
+    epitopeNCI= np.transpose(epitopePhy[:,8:9])
+    
+    # Empty array for Combined features
+    epitopeCDR3MassArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3HydrophobicityArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3HydrophilicityArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3HydrogenBondArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3VolumeOfSideChainsArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3PolarityArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3PolarizabilityArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3SASAArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3NCIArray = np.zeros((sizeCDR3,sizeEpitope))
+    epitopeCDR3IPArray = np.zeros((sizeCDR3,sizeEpitope))
+    CombinedImage = np.zeros((sizeCDR3,sizeEpitope,9))
+        
+    # Calculate Padding Size
+    cdr3Padding= int((sizeCDR3-len(cdr3Seq))/2)
+    epitopePadding= int((sizeEpitope-len(epitopeSeq))/2)
+
+    #Generate Combined features
+    for i in range(len(cdr3Seq)):
+        
+        cdr3PaddingPos=cdr3Padding+i
+        epitopePaddingPos=epitopePadding+lengthCurrentEpitope
+        
+        epitopeCDR3MassArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1 + (cdr3Mass[0,i]*epitopeMass[0,:lengthCurrentEpitope] - minProductMass)/diffProductMass
+        epitopeCDR3HydrophobicityArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1 + (cdr3Hydrophobicity[0,i]*epitopeHydrophobicity[0,:lengthCurrentEpitope] - minProductHydrophobicity)/diffProductHydrophobicity
+        epitopeCDR3HydrophilicityArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1 + (cdr3Hydrophilicity[0,i]*epitopeHydrophilicity[0,:lengthCurrentEpitope] - minProductHydrophilicity)/diffProductHydrophilicity
+        epitopeCDR3HydrogenBondArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1 + (cdr3HydrogenBond[0,i]*epitopeHydrogenBond[0,:lengthCurrentEpitope] - minProductHydrogenBond)/diffProductHydrogenBond
+        epitopeCDR3VolumeOfSideChainsArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1 + (cdr3VolumeOfSideChains[0,i]*epitopeVolumeOfSideChains[0,:lengthCurrentEpitope] - minProductVolumeOfSideChains)/diffProductVolumeOfSideChains
+        epitopeCDR3PolarityArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1 + (cdr3Polarity[0,i]*epitopePolarity[0,:lengthCurrentEpitope] - minProductPolarity)/diffProductPolarity
+        epitopeCDR3PolarizabilityArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1 + (cdr3Polarizability[0,i]*epitopePolarizability[0,:lengthCurrentEpitope] - minProductPolarizability)/diffProductPolarizability
+        epitopeCDR3SASAArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1 + (cdr3SASA[0,i]*epitopeSASA[0,:lengthCurrentEpitope] - minProductSASA)/diffProductSASA
+        epitopeCDR3NCIArray[cdr3PaddingPos,epitopePadding:epitopePaddingPos] = 1 + (cdr3NCI[0,i]*epitopeNCI[0,:lengthCurrentEpitope] - minProductNCI)/diffProductNCI
+        
+    CombinedImage[:,:,0]=epitopeCDR3MassArray
+    CombinedImage[:,:,1]=epitopeCDR3HydrophobicityArray
+    CombinedImage[:,:,2]=epitopeCDR3HydrophilicityArray
+    CombinedImage[:,:,3]=epitopeCDR3HydrogenBondArray 
+    CombinedImage[:,:,4]=epitopeCDR3VolumeOfSideChainsArray 
+    CombinedImage[:,:,5]=epitopeCDR3PolarityArray 
+    CombinedImage[:,:,6]=epitopeCDR3PolarizabilityArray 
+    CombinedImage[:,:,7]=epitopeCDR3SASAArray 
+    CombinedImage[:,:,8]=epitopeCDR3NCIArray
+    
+    return CombinedImage
