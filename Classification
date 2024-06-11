@@ -1,0 +1,125 @@
+#Import Libraries
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+import time 
+import copy
+import pandas as pd
+from keras.utils import np_utils
+from tensorflow.keras.models import load_model
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn import neighbors, datasets, metrics
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import f1_score
+from sklearn.model_selection import train_test_split
+
+import sys
+import tensorflow as tf
+tf.config.run_functions_eagerly(True)
+np.set_printoptions(threshold=sys.maxsize)
+
+# Classification Models
+
+def ImpPCA(xTrain, xTest, yTrain, yTest,PCAVariance):
+    
+    # Implementation of PCA : Dimensionality reduction using PCA
+
+    #initialization for scaling
+    scaler = StandardScaler()
+
+    xTrainF = np.reshape(xTrain, (np.shape(yTrain)[0],-1))
+    xTestF = np.reshape(xTest, (np.shape(yTest)[0],-1))
+
+    # Fit scaler with training data.
+    scaler.fit(xTrainF)
+
+    # transform and save both training and testing scaled feature array.
+    trainImage = scaler.transform(xTrainF)
+    testImage = scaler.transform(xTestF)
+
+    #initialize pca to select principle components with 95% variance
+    pca = PCA(PCAVariance)
+
+    # Fit PCA with training data.
+    XI=pca.fit(trainImage)
+
+    # transform and save both training and testing feature array with given variance
+    trainImage = pca.transform(trainImage)
+    testImage = pca.transform(testImage)
+
+    print('PCA done')
+    
+    return trainImage,testImage
+
+def ImpKNN(trainImage,testImage,yTrain, n_neighbors):
+
+    # Implementation of KNN with PCA: Classify test images based on PCA features using KNN
+
+    # Fit the classifier with training data
+    knnPCA = neighbors.KNeighborsClassifier(n_neighbors, weights="distance")
+    knnPCA.fit(trainImage, yTrain)
+
+    # predict classes for testing data
+    predictedProbabilityPCA = knnPCA.predict_proba(testImage)
+    
+    return predictedProbabilityPCA
+
+
+def ImpPCA(xTrain, xTest, yTrain, yTest,PCAVariance):
+    
+    # Implementation of PCA : Dimensionality reduction using PCA
+
+    #initialization for scaling
+    scaler = StandardScaler()
+
+    xTrainF = np.reshape(xTrain, (np.shape(yTrain)[0],-1))
+    xTestF = np.reshape(xTest, (np.shape(yTest)[0],-1))
+
+    # Fit scaler with training data.
+    scaler.fit(xTrainF)
+
+    # transform and save both training and testing scaled feature array.
+    trainImage = scaler.transform(xTrainF)
+    testImage = scaler.transform(xTestF)
+
+    #initialize pca to select principle components with 95% variance
+    pca = PCA(PCAVariance)
+
+    # Fit PCA with training data.
+    XI=pca.fit(trainImage)
+
+    # transform and save both training and testing feature array with given variance
+    trainImage = pca.transform(trainImage)
+    testImage = pca.transform(testImage)
+
+    print('PCA done')
+    
+    return trainImage,testImage
+
+def ImpKNN(trainImage,testImage,yTrain, n_neighbors):
+
+    # Implementation of KNN with PCA: Classify test images based on PCA features using KNN
+
+    # Fit the classifier with training data
+    knnPCA = neighbors.KNeighborsClassifier(n_neighbors, weights="distance")
+    knnPCA.fit(trainImage, yTrain)
+
+    # predict classes for testing data
+    predictedProbabilityPCA = knnPCA.predict_proba(testImage)
+    
+    return predictedProbabilityPCA
+
+channels= [1,8]
+print(channels)
+
+# Define no. of nearest neighbours to consider
+n_neighbors = 100
+PCAVariance = .95
+
+# Predict interaction/No interaction using PCA and KNN
+xTrain, xTest, yTrain, yTest1=fold1(channels)
+trainImage,testImage = ImpPCA(xTrain, xTest, yTrain, yTest1, PCAVariance)
+group1KNN = ImpKNN(trainImage,testImage,yTrain, n_neighbors)
+
+## Do this for all groups/folds
